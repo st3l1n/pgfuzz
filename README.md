@@ -19,7 +19,7 @@ This tool takes a pg repo, grabs all branches listed in settings, build containe
 
 For squirrel timeout flag was made. This flag actually is not needed, but if you have no crashes with your corpus, you need to stop fuzzing automatically. In the end you'll get afl++ logs and server logfile an tar archive from container.
 
-By my observations sqlancer was more efficient the squirrel. When the query crashes the server we collect: 
+By my observations sqlancer was more efficient then squirrel. When a query crashes a server we collect: 
  - query itself
  - unique state, which led to crash (sequence of queries)
  - postgres process dump
