@@ -1,0 +1,56 @@
+FROM aflplusplus/aflplusplus:latest
+LABEL "Author"="st3l1n"
+LABEL "version"="1.0"
+LABEL "description"="squirrel fuzzing tool automation for postgresql" 
+
+ARG POSTGRES=postgres.tar.gz
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get -y install gdb libperl-dev bison flex git make cmake build-essential gcc-multilib g++-multilib xinetd \
+    libreadline-dev zlib1g-dev clang libssl-dev libncurses5-dev screen sudo --fix-missing
+RUN mkdir /home/postgres; groupadd -r postgres --gid=999; useradd -r -g postgres --uid=999 --home-dir=/home/postgres --shell=/bin/bash postgres;
+COPY ./${POSTGRES} /opt/${POSTGRES}
+WORKDIR /opt
+RUN mkdir /opt/src
+RUN tar -xf ${POSTGRES} -C /opt/src && rm ${POSTGRES}
+COPY squirrel/squirrel /opt/Squirrel
+COPY squirrel/docker-entrypoint.sh /opt/docker-entrypoint.sh
+COPY squirrel/root-entrypoint.sh /opt/root-entrypoint.sh
+COPY squirrel/screen_fuzzing.sh /opt/screen_fuzzing.sh
+RUN chown -R postgres:postgres /opt
+USER postgres
+ENV CC="afl-gcc"
+ENV CXX="afl-g++"
+WORKDIR /opt/src
+RUN mkdir /opt/postgres
+RUN ./configure CFLAGS="-O0" --enable-cassert --enable-debug --with-perl --prefix=/opt/postgres
+RUN make world-bin -j20 && make install-world-bin
+ENV CC=
+ENV CXX=
+RUN mkdir /opt/pg_pure; ./configure --prefix=/opt/pg_pure
+RUN make -j20 && make install
+WORKDIR /opt/Squirrel/AFL
+RUN make afl-fuzz
+RUN mkdir -p /opt/fuzzing/fuzz_root
+RUN cp /opt/Squirrel/AFL/afl-fuzz /opt/fuzzing/afl-fuzz
+RUN cp -r /opt/Squirrel/docker/init_lib/ /opt/fuzzing/fuzz_root/postgres_initlib/
+RUN cp /opt/Squirrel/docker/safe_generate_type /opt/fuzzing/fuzz_root/
+RUN cp /opt/Squirrel/docker/global_data_lib /opt/fuzzing/fuzz_root/
+RUN cp -r /opt/Squirrel/docker/input/ /opt/fuzzing/fuzz_root/crashes/
+RUN cp /opt/Squirrel/docker/create.sh /opt/fuzzing/fuzz_root/
+RUN chmod +x /opt/fuzzing/fuzz_root/create.sh
+RUN chmod +x /opt/docker-entrypoint.sh
+RUN chmod +x /opt/root-entrypoint.sh
+RUN chmod +x /opt/screen_fuzzing.sh
+RUN mkdir /opt/data;mkdir /opt/share; /opt/postgres/bin/initdb -D /opt/data
+WORKDIR /opt/fuzzing/fuzz_root
+RUN ./create.sh
+RUN sed -i 's/\#statement\_timeout = 0/statement\_timeout = 10000/' /opt/data/postgresql.conf
+RUN mkdir ../output
+USER root
+RUN echo 'export PATH=$PATH:/opt/postgres/bin' >> /etc/profile.d/postgres.sh
+RUN echo "export LD_LIBRARY_PATH=/opt/postgres/lib/" >> /etc/profile.d/postgres.sh
+RUN echo "export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1" >> /etc/profile.d/postgres.sh
+RUN echo "export SHM_ENV_VAR=1" >> /etc/profile.d/postgres.sh
+# USER postgres
+ENTRYPOINT ["/opt/root-entrypoint.sh"]

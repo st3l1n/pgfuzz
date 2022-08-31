@@ -1,0 +1,16 @@
+BasePath: /home/nick/git/pggenfuzz
+ArtefactsPath: /home/nick/Fuzz/arts
+SquirrelTimeout: 60
+CheckTimeout: 180
+Email:
+  senderlogin: email_for_mailbot
+  senderpassword: pass_for_mailbot
+  receivers: reciever_of_emails
+  smtp: 
+  port:
+PostgresSettings:
+  IsGit: true
+  Branches:
+    BranchName: true_version
+    AnotherBranch: version
+  PostgresSource: /home/nick/git/postgrespro
