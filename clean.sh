@@ -1,0 +1,1 @@
+rm -rf start.log fuzz.log postgres.tar.gz FUZZVenv containers

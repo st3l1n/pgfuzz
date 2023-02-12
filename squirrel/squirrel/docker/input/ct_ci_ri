@@ -1,3 +1,0 @@
-create table v0(v1 INT, v2 INT);
-create index v3 on v0(v1);
-reindex table v0;

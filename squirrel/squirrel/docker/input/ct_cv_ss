@@ -1,3 +1,0 @@
-create table v0(v1 FLOAT);
-create view v2 AS select * from v0;
-select * from v2;

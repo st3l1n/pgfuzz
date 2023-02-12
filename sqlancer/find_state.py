@@ -1,7 +1,7 @@
 import os
 
-prefix = '/opt/postgres/sqlancer/target/logs/postgres/'
-query = os.popen('grep -ih "Failed process was running:" /opt/postgres/logfile').read().split("Failed process was running: ")[-1].strip()
+prefix = '/opt/pg/sqlancer/target/logs/postgres/'
+query = os.popen('grep -ih "Failed process was running:" /opt/pg/logfile').read().split("Failed process was running: ")[-1].strip()
 if query:
     valid_logs = list([prefix+log for log in os.listdir(prefix)])
     for log in valid_logs:

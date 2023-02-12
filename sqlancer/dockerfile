@@ -1,36 +1,35 @@
-FROM debian:bullseye
+FROM debian:bullseye-20230208
 LABEL "Author"="st3l1n"
-LABEL "version"="1.0"
-LABEL "description"="sqlancer fuzzing tool automatization for postgresql" 
+LABEL "version"="1.4"
+LABEL "description"="sqlancer fuzzing tool adaptation for postgres" 
 
-ARG POSTGRES=postgres.tar.gz
+ARG PGSOURCE=postgres.tar.gz
 RUN  apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
     zlib1g-dev libreadline6-dev git make flex bison perl libperl-dev \
-    openjdk-17-jdk maven git lcov python3-dev gdb fuse \ 
+    openjdk-17-jdk maven git lcov python3-dev gdb fuse libfuse-perl \ 
     tcl-dev gettext libssl-dev libicu-dev libkrb5-dev libxml2-dev sudo pkg-config libxslt-dev libipc-run-perl --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
-RUN mkdir /opt/postgres; groupadd -r postgres --gid=999; useradd -r -g postgres --uid=999 --home-dir=/opt/postgres --shell=/bin/bash postgres;
-COPY ./${POSTGRES} /opt/${POSTGRES}
+RUN mkdir /opt/pg; groupadd -r postgres --gid=999; useradd -r -g postgres --uid=999 --home-dir=/opt/pg --shell=/bin/bash postgres;
+COPY ./${PGSOURCE} /opt/${PGSOURCE}
 WORKDIR /opt
 RUN mkdir /opt/src
-RUN tar -xf ${POSTGRES} -C /opt/src && rm ${POSTGRES}
+RUN tar -xf ${PGSOURCE} -C /opt/src && rm ${PGSOURCE}
 WORKDIR /opt/src
-COPY sqlancer/docker-entrypoint.sh /opt/postgres/docker-entrypoint.sh
-COPY sqlancer/find_state.py /opt/postgres/find_state.py
-COPY sqlancer/root-entrypoint.sh /opt/postgres/root-entrypoint.sh
-COPY sqlancer/gdb_commands /opt/postgres/gdb_commands
+COPY sqlancer/docker-entrypoint.sh /opt/pg/docker-entrypoint.sh
+COPY sqlancer/find_state.py /opt/pg/find_state.py
+COPY sqlancer/root-entrypoint.sh /opt/pg/root-entrypoint.sh
+COPY sqlancer/gdb_commands /opt/pg/gdb_commands
 RUN mkdir /opt/data && mkdir /opt/share && chown -R postgres:postgres /opt
 USER postgres
 ENV LC_ALL C.UTF-8
 RUN ./configure CFLAGS="--coverage -O0" LDFLAGS="--coverage" \
-        --prefix=/opt/postgres \
+        --prefix=/opt/pg \
         --enable-cassert \
         --enable-debug \
         --enable-tap-tests \
         --enable-nls \
         --with-gssapi \
         --with-icu \
-        # --with-ldap \
         --with-libxml \
         --with-libxslt \
         --with-perl \
@@ -40,20 +39,20 @@ RUN ./configure CFLAGS="--coverage -O0" LDFLAGS="--coverage" \
         --enable-coverage
 
 RUN make world-bin -j10 && make install-world-bin
-RUN /opt/postgres/bin/initdb -D /opt/data/ -U postgres -E UTF8
-WORKDIR /opt/postgres
+RUN /opt/pg/bin/initdb -D /opt/data/ -U postgres -E UTF8
+WORKDIR /opt/pg
 RUN git clone https://github.com/sqlancer/sqlancer.git
-WORKDIR /opt/postgres/sqlancer
+WORKDIR /opt/pg/sqlancer
 RUN mvn package -DskipTests
-WORKDIR /opt/postgres/sqlancer/target
-RUN chmod +x /opt/postgres/docker-entrypoint.sh
-RUN chmod +x /opt/postgres/root-entrypoint.sh
-RUN chmod +x /opt/postgres/find_state.py
-RUN mkdir /opt/postgres/sqlancer/target/logs && chmod 777 /opt/postgres/sqlancer/target/logs
+WORKDIR /opt/pg/sqlancer/target
+RUN chmod +x /opt/pg/docker-entrypoint.sh
+RUN chmod +x /opt/pg/root-entrypoint.sh
+RUN chmod +x /opt/pg/find_state.py
+RUN mkdir /opt/pg/sqlancer/target/logs && chmod 777 /opt/pg/sqlancer/target/logs
 USER root
 RUN usermod -aG sudo postgres
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-RUN echo 'export PATH=$PATH:/opt/postgres/bin' >> /etc/profile.d/postgres.sh
+RUN echo 'export PATH=$PATH:/opt/pg/bin' >> /etc/profile.d/postgres.sh
 RUN mkdir /opt/arts
 RUN ulimit -c unlimited
-ENTRYPOINT ["/opt/postgres/root-entrypoint.sh"]
+ENTRYPOINT ["/opt/pg/root-entrypoint.sh"]
